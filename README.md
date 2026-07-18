@@ -1,198 +1,101 @@
 # ChatRoom
 
-ChatRoom is a local-first multi-agent chat platform that coordinates a supervisor and specialized agents to answer questions with model reasoning, structured tools, and connected data.
+ChatRoom is a local-first multi-agent chat platform. A supervisor selects specialized agents, agents use approved tools, and the supervisor combines their findings into one inspectable response.
 
-It demonstrates an end-to-end agentic application rather than a standalone chatbot: the supervisor selects the smallest useful specialist team, specialists query approved tools, and the supervisor synthesizes one response. The application preserves conversations, execution traces, and generated artifacts so every turn can be inspected after it runs.
+The project uses React, TypeScript, FastAPI, Python, and SQLite, with provider adapters for Ollama, OpenAI, and Amazon Bedrock.
 
-Built with React, TypeScript, FastAPI, Python, and SQLite, ChatRoom supports local Ollama models as well as OpenAI and Amazon Bedrock. Bundled mock services make the connector workflows reproducible without access to production systems.
+## Features
 
-## Key Capabilities
+- Supervisor-driven agent routing with deterministic fallback
+- Custom agents with constrained tool access
+- Snowflake, external API, and uploaded CSV tools
+- Persistent conversations, traces, and chart artifacts
+- Local mock services for repeatable demos
+- 190 passing backend tests
 
-- **ChatGPT-style UI** — dark sidebar, conversation history, centered chat, Settings modal, Inspect panel
-- **Supervisor orchestration** — provider-driven specialist selection with deterministic routing fallback
-- **Specialized agents and tools** — configurable agents with constrained tool access and explicit handoffs
-- **Pluggable model providers** — Ollama, OpenAI, and Amazon Bedrock behind a shared provider interface
-- **Connected data** — Snowflake and external account APIs, with bundled local mock services
-- **CSV knowledge tools** — uploaded datasets become query tools assignable to custom agents
-- **Inspectable execution** — persisted routing decisions, tool calls, specialist findings, and chart artifacts
-- **Local persistence** — SQLite-backed conversations, messages, custom agents, datasets, and traces
-- **Automated backend coverage** — 190 passing tests across APIs, storage, providers, connectors, tools, and orchestration
+## How It Works
 
-## Architecture and Testing
-
-- [High-Level Design](docs/high_level_design.md) — architecture, concepts, process flows
-- [Low-Level Design](docs/low_level_design.md) — DB schema, API catalog, module contracts, E2E checklist
-- [E2E test scenarios](docs/e2e_test_scenarios.md) — step-by-step UI / API / DB / Inspect checks
-- [Group chat flow](docs/local_group_chat_flow.md) — one-turn Mermaid sequence
-
-```text
-chatroom/
-├── .env.example
-├── backend/
-│   ├── app/          # FastAPI, supervisor, connectors, providers
-│   ├── tools/        # Local tool implementations
-│   └── tests/
-├── docs/
-├── frontend/src/     # ChatGPT-style React UI
-├── mock_services/    # Optional local Snowflake + account API mocks
-└── README.md
+```mermaid
+flowchart LR
+  User --> UI[React UI]
+  UI --> API[FastAPI]
+  API --> Supervisor
+  Supervisor --> Specialists[Specialist agents]
+  Specialists --> Tools[Connectors and CSV tools]
+  Supervisor --> Provider[Ollama / OpenAI / Bedrock]
+  API --> DB[(SQLite)]
 ```
 
+The manager asks the active model to select the smallest useful specialist team. Specialists run in stable order, tool outputs are validated, and the manager synthesizes the final answer. Inspect shows routing decisions, tool calls, findings, and artifacts.
 
+## Quick Start
 
-## Prerequisites
-
-- Python 3.11+
-- `uv`
-- Node.js 20.19+ or 22.12+ (see `frontend/.nvmrc`)
-- npm
-- For real chat: [Ollama](https://ollama.com) with a pulled model (for example `llama3.2`)
-
-
-
-## First Run
+Requirements: Python 3.11+, `uv`, Node.js 20.19+ or 22.12+, npm, and a configured model provider.
 
 ```sh
-cd chatroom
 cp .env.example .env
 ```
 
-Recommended `.env` defaults use **Ollama**:
+The default configuration uses Ollama with `llama3.2`. Pull and start that model, or configure OpenAI or Bedrock in `.env`.
 
-```env
-MODEL_PROVIDER=ollama
-OLLAMA_MODEL=llama3.2
-```
-
-
-
-### Run The App
-
-Two terminals:
-
-**Backend**
+Start the backend:
 
 ```sh
-cd chatroom/backend
+cd backend
 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
-**Frontend**
+Start the frontend in another terminal:
 
 ```sh
-cd chatroom/frontend
-npm install
+cd frontend
+npm ci
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
 Open [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
-### First Useful Chat
+## Try the Agent Workflows
 
-1. Start the optional connectors if you want Sales pipeline / Account directory (see `mock_services/README.md`).
-2. Open **Settings** (sidebar footer):
-  - **Create agent** → Agent Studio; pick **Available tools** (connectors + CSV tools)
-  - **Create knowledge base** → upload CSVs as `query_dataset_`* tools
-  - **Your agents** — custom specialists with one or more tools (backend connectors and/or CSV knowledge)
-3. Type a message and send. The app creates a conversation automatically.
-4. Open **Inspect** for routing, tool calls, and charts.
+- Start the bundled connectors with `./mock_services/start_external_api.sh` and `./mock_services/start_snowflake_mock.sh`. See [mock services](mock_services/README.md) for `.env` values.
+- Upload `mock_services/data/student_grades.csv` from Settings → Create knowledge base, then assign its generated tool to a custom agent.
+- Ask about account `AC-1001`, Closed Won revenue by region, or the uploaded student data.
+- Open Inspect to review the agent and tool trace.
 
-Built-in connector agents are included automatically when configured. Custom agents are included when you have any. You do **not** need a custom agent for Snowflake or account lookup — those are tools used by the built-in specialists.
+All bundled records are synthetic.
 
-## Optional Mock Connectors
+## Configuration
 
-```sh
-./mock_services/start_external_api.sh
-./mock_services/start_snowflake_mock.sh
-```
+| Provider | Required setting |
+| --- | --- |
+| Ollama | `OLLAMA_MODEL` |
+| OpenAI | `OPENAI_API_KEY` |
+| Bedrock | `BEDROCK_MODEL_ID` and AWS credentials |
 
-Add the sample values from `mock_services/README.md` to `.env`, restart the backend, then open **Settings → Create agent** and confirm Sales pipeline / Account directory appear under Available tools.
+Optional connectors use `SNOWFLAKE_*` and `EXTERNAL_API_*` settings. Set `TURN_REPORTS_ENABLED=1` to write local HTML and JSON turn reports under `backend/data/turn_reports/`.
 
-## Turn Reports (optional HTML after each chat)
-
-Turn reports are **opt-in**. Set `TURN_REPORTS_ENABLED=1` to write reviewable reports under `backend/data/turn_reports/`:
-
-- `.html` — flowchart-style page with manager → specialist → tool → final answer
-- `.json` — same payload for tooling (secret-like fields are redacted)
-
-Watch the backend terminal for:
-
-```text
-[turn-report] /.../backend/data/turn_reports/....html
-```
-
-Or open the newest file in that folder after sending a message.
-## Verification
+## Verify
 
 ```sh
-cd backend && uv run pytest
-cd frontend && npm run lint && npm run build
+cd backend
+uv run pytest
 ```
 
+```sh
+cd frontend
+npm run lint
+npm run build
+```
 
+## Documentation
 
-## What To Inspect First
+- [High-level design](docs/high_level_design.md)
+- [Low-level design](docs/low_level_design.md)
+- FastAPI Swagger UI: `http://127.0.0.1:8001/docs`
 
-1. `docs/high_level_design.md` — system shape and flows
-2. `docs/low_level_design.md` — schema, endpoints, invariants
-3. `backend/app/main.py` — FastAPI entrypoint
-4. `backend/app/api/conversations.py` — chat HTTP routes
-5. `backend/app/services/chat_turn.py` — provider-first turn orchestration + sequential persistence
-6. `backend/app/supervisor/` — `ProviderSupervisor`, specialists, follow-ups
-7. `backend/app/connector_agents.py` — built-in Sales pipeline / Account directory agents
-8. `backend/app/tool_registry.py` — static, connector, and dataset tools
-9. `frontend/src/App.tsx` — UI shell
-10. `docs/local_group_chat_flow.md` — one chat-turn diagrams
+## Current Boundaries
 
-
-
-## Request Flow Walkthrough
-
-`ChatTurnService` runs `ProviderSupervisor` before changing conversation history. On success, it writes the title, messages, artifacts, and Inspect events in sequence, then replays the answer as buffered text. Provider failures happen before those writes, so they do not leave an orphan user message. The successful-turn writes are not wrapped in one atomic database transaction.
-
-See the [high-level process flows](docs/high_level_design.md#5-end-to-end-process-flows), [group chat sequence](docs/local_group_chat_flow.md), and [stream contract](docs/low_level_design.md#35-conversations--chat) for details.
-
-## Provider Abstraction
-
-
-| Provider  | In UI? | Required config                      |
-| --------- | ------ | ------------------------------------ |
-| `ollama`  | Yes    | `OLLAMA_MODEL`                       |
-| `openai`  | Yes    | `OPENAI_API_KEY`                     |
-| `bedrock` | Yes    | `BEDROCK_MODEL_ID` + AWS credentials |
-
-
-Switch the active provider from the sidebar model menu (`PUT /providers/active`). Chat uses the provider for supervisor routing via `generate()`, not a full per-agent tool-call loop yet.
-
-## Tools
-
-
-| Source          | Examples                                 | When available                                                |
-| --------------- | ---------------------------------------- | ------------------------------------------------------------- |
-| Supervisor-only | `summarize_findings`, `build_chart_spec` | Always; hidden from agent assignment                          |
-| CSV upload      | `query_dataset_*`                        | After Settings → Create knowledge base                        |
-| Snowflake       | `query_snowflake`                        | When `SNOWFLAKE_*` is set (Sales pipeline agent)              |
-| External API    | `lookup_account`                         | When `EXTERNAL_API_BASE_URL` is set (Account directory agent) |
-
-
-
-
-## Supervisor Group Chat
-
-Local `ProviderSupervisor` lets a manager pick specialists, run tools, and produce one synthesized answer.
-
-## Next Changes To Try
-
-1. Upload a CSV and create a custom agent that uses its query tool.
-2. Register a new `LocalTool` under `backend/tools/` and write a unit test.
-3. Enable mock connectors and ask about revenue by region or account `AC-1001`.
-4. Switch providers from the sidebar and use Inspect → Trace.
-5. Extend provider-driven tool selection to dataset tools.
-
-
-
-## Known Limitations
-
-- Snowflake and lookup_account use model tool calls; dataset tools still use inferred `{limit: 50}` arguments.
-- The `/messages/stream` endpoint replays a completed answer as buffered chunks; it is not live provider-token streaming.
-- Local RAG is planned for P2.
+- This is a localhost-oriented project without authentication; do not expose it directly to the public internet.
+- Chat responses are replayed as buffered chunks after orchestration completes, not streamed token-by-token from the provider.
+- Dataset tools currently use inferred arguments; connector tools use model-generated tool calls.
+- Successful-turn records are committed sequentially rather than in one atomic transaction.

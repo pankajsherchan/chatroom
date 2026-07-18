@@ -1,42 +1,26 @@
-# Local mock external services
+# Mock Services and Data
 
-Small standalone HTTP servers for trying optional connectors without real Snowflake or business-system credentials.
+Local services and synthetic data for demonstrating connector and CSV-agent workflows without production credentials.
 
-## What is included
-
-| Service | Port | Used by |
+| Resource | Location | Purpose |
 | --- | --- | --- |
-| `external_api` | `8010` | `lookup_account` via `EXTERNAL_API_BASE_URL` |
-| `snowflake_mock` | `8011` | `query_snowflake` when `SNOWFLAKE_ACCOUNT=local` |
+| Account API | `external_api/` on port `8010` | Powers `lookup_account` |
+| Snowflake mock | `snowflake_mock/` on port `8011` | Powers `query_snowflake` |
+| Student grades | `data/student_grades.csv` | Upload example for a custom CSV agent |
 
-Both services reuse the backend virtualenv (`fastapi`, `uvicorn`).
+## Start
 
-## Start the mocks
-
-Terminal 1:
+Run from the repository root in separate terminals:
 
 ```sh
-cd chatroom
 ./mock_services/start_external_api.sh
 ```
 
-Terminal 2:
-
 ```sh
-cd chatroom
 ./mock_services/start_snowflake_mock.sh
 ```
 
-Health checks:
-
-```sh
-curl http://127.0.0.1:8010/health
-curl http://127.0.0.1:8011/health
-```
-
-## Wire the main app
-
-Add these values to `chatroom/.env`:
+Add this local-only configuration to `.env`, then restart the backend:
 
 ```env
 EXTERNAL_API_BASE_URL=http://127.0.0.1:8010
@@ -51,43 +35,21 @@ SNOWFLAKE_SCHEMA=PUBLIC
 SNOWFLAKE_MOCK_URL=http://127.0.0.1:8011
 ```
 
-Restart the backend on port `8001`, then:
-
-- **Settings → Create agent → Available options** should show Sales pipeline and Account directory as ready
-- **Inspect → Tools** should list `lookup_account` and `query_snowflake`
-
-## Try the mocks directly
-
-External account lookup:
+Health checks:
 
 ```sh
-curl -H "Authorization: Bearer dev-token" http://127.0.0.1:8010/accounts/AC-1001
-
-curl -H "Authorization: Bearer dev-token" http://127.0.0.1:8010/accounts
+curl http://127.0.0.1:8010/health
+curl http://127.0.0.1:8011/health
 ```
 
-Mock Snowflake SQL:
+Settings and Inspect should now show the Account directory and Sales pipeline tools. Upload `mock_services/data/student_grades.csv` through Create knowledge base to try a custom data agent.
 
-```sh
-curl -X POST http://127.0.0.1:8011/query \
-  -H 'Content-Type: application/json' \
-  -d '{"sql":"SELECT region, SUM(CAST(revenue AS REAL)) AS total_revenue FROM pipeline_deals WHERE stage = '\''Closed Won'\'' GROUP BY region LIMIT 5"}'
-```
+## Data and Overrides
 
-## Mock data
+- Account records: `external_api/accounts.json`
+- Pipeline records: `snowflake_mock/data/pipeline_deals.csv`
+- CSV upload example: `data/student_grades.csv`
+- `MOCK_EXTERNAL_API_PORT` and `MOCK_EXTERNAL_API_KEY` override account-service defaults.
+- `MOCK_SNOWFLAKE_PORT`, `MOCK_SNOWFLAKE_CSV`, and `MOCK_SNOWFLAKE_TABLE` override Snowflake-mock defaults.
 
-- External API accounts live in `mock_services/external_api/accounts.json`
-- Snowflake mock loads `mock_services/snowflake_mock/data/pipeline_deals.csv` into a `pipeline_deals` table
-
-## Optional mock server env vars
-
-External API mock:
-
-- `MOCK_EXTERNAL_API_PORT` (default `8010`)
-- `MOCK_EXTERNAL_API_KEY` (default `dev-token`)
-
-Snowflake mock:
-
-- `MOCK_SNOWFLAKE_PORT` (default `8011`)
-- `MOCK_SNOWFLAKE_CSV` (default `mock_services/snowflake_mock/data/pipeline_deals.csv`)
-- `MOCK_SNOWFLAKE_TABLE` (optional override; defaults to the CSV filename stem)
+All bundled records and credentials are synthetic and intended only for local development.

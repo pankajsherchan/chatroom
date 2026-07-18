@@ -1,4 +1,4 @@
-"""Optional external HTTP API connector for local teaching."""
+"""Optional external HTTP API connector for local development."""
 
 from __future__ import annotations
 

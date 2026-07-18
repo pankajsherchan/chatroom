@@ -1,7 +1,7 @@
 [project]
 name = "chatroom-backend"
 version = "0.1.0"
-description = "FastAPI backend for the ChatRoom teaching project."
+description = "FastAPI backend for the ChatRoom multi-agent platform."
 requires-python = ">=3.11"
 dependencies = [
     "boto3>=1.43,<2.0",

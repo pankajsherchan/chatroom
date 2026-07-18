@@ -1,4 +1,4 @@
-"""Optional Snowflake SQL connector for local teaching."""
+"""Optional Snowflake SQL connector for local development."""
 
 from __future__ import annotations
 

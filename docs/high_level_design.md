@@ -1,179 +1,91 @@
-# High-Level Design (HLD)
+# High-Level Design
 
-ChatRoom is a teaching app for multi-agent chat on a small local stack: FastAPI + SQLite + React, with optional Ollama / OpenAI / Bedrock providers and connector tools.
+ChatRoom is a local-first multi-agent chat application built with React, FastAPI, and SQLite. It separates model providers, agents, and tools so each can evolve independently.
 
-Use this document before E2E testing to understand **what the system is**, **what pieces exist**, and **how a chat turn flows**. For tables, endpoints, and module contracts, see [Low-Level Design](./low_level_design.md). For a single-turn sequence diagram, see [Local Group Chat Flow](./local_group_chat_flow.md).
-
----
-
-## 1. Goals
-
-| Goal | How this app shows it |
-| --- | --- |
-| Multi-agent chat | Implicit `supervisor` + specialists (connector agents + optional custom agents) |
-| Supervisor model | Manager picks specialists; specialists use tools; one synthesized answer |
-| Swappable models | `ModelProvider` factory (`ollama`, `openai`, `bedrock`) |
-| Local persistence | SQLite conversations, messages, inspect events, artifacts, custom agents, datasets |
-| Tool vs agent clarity | Snowflake SQL / account lookup are **tools**; custom agents **call** tools |
-
-Non-goals: authentication, Postgres, agent bake/publish workflows, MCP, Slack/Zoom, and full per-specialist model tool-call loops.
-
----
-
-## 2. System context
+## System Context
 
 ```mermaid
 flowchart LR
-  User([User]) --> UI[React UI<br/>localhost:5173]
-  UI --> API[FastAPI Backend<br/>localhost:8001]
+  User([User]) --> UI[React UI<br/>:5173]
+  UI --> API[FastAPI<br/>:8001]
   API --> DB[(SQLite)]
-  API --> Provider[Model Provider<br/>Ollama / OpenAI / Bedrock]
-  API --> Snowflake[Snowflake tool<br/>or mock_services]
-  API --> ExtAPI[External API tool<br/>or mock_services]
-  API --> CSV[Imported CSV files<br/>on disk]
-  API --> Artifacts[/static artifacts/]
+  API --> Models[Ollama / OpenAI / Bedrock]
+  API --> Snowflake[Snowflake or local mock]
+  API --> Accounts[Account API or local mock]
+  API --> CSV[Uploaded CSV files]
 ```
 
-**Runtime defaults**
-
-- Backend: `127.0.0.1:8001`
-- Frontend: `127.0.0.1:5173` (`VITE_API_URL` → backend)
-- DB: `SQLITE_DB_PATH` (default under `backend/data/`)
-- Active chat provider: `MODEL_PROVIDER` env, overridable at runtime via `PUT /providers/active`
-
----
-
-## 3. Architecture overview
-
-```mermaid
-flowchart TB
-  subgraph Frontend
-    Sidebar[Sidebar chats + provider]
-    Chat[Centered chat]
-    Settings[Settings / Studios]
-    Inspect[Inspect panel]
-  end
-
-  subgraph Backend["Backend FastAPI"]
-    APIs[API routers]
-    Registry[Agent + tool registry]
-    Supervisor[ProviderSupervisor]
-    Providers[Provider adapters]
-    Connectors[Connector clients]
-    Storage[storage.py SQLite]
-  end
-
-  Sidebar --> APIs
-  Chat --> APIs
-  Settings --> APIs
-  Inspect --> APIs
-  APIs --> Registry
-  APIs --> Supervisor
-  APIs --> Storage
-  Supervisor --> Providers
-  Supervisor --> Registry
-  Registry --> Connectors
-  Registry --> Storage
-```
-
-### Major components
+## Components
 
 | Component | Responsibility |
 | --- | --- |
-| **React UI** (`frontend/src/App.tsx`) | ChatGPT-style shell; Settings → Create agent / Knowledge Base; Inspect for trace/artifacts/tools |
-| **API layer** (`backend/app/api/`) | Thin HTTP boundary over storage, registries, supervisor |
-| **Agent registry** | Merges supervisor + connector agents + custom agents from SQLite |
-| **Tool registry** | Static tools + optional connectors + per-dataset `query_dataset_*` tools |
-| **ProviderSupervisor** | Asks the model for specialist ids; runs specialist tools; synthesizes answer; emits transcript events |
-| **Providers** | Shared `generate()` / `stream()` interface; chat routing uses `generate()` today |
-| **Storage** | Schema + CRUD for conversations, messages, events, artifacts, agents, datasets |
-| **mock_services/** | Optional local stand-ins for Snowflake + account directory |
+| React UI | Conversations, provider selection, Settings, and Inspect |
+| API routers | HTTP validation and response models |
+| `ChatTurnService` | Coordinates provider execution and persistence |
+| `ProviderSupervisor` | Selects specialists, runs follow-ups, and synthesizes answers |
+| Agent registry | Combines supervisor, connector, and custom agents |
+| Tool registry | Combines built-in, connector, and dataset tools |
+| Provider adapters | Normalize Ollama, OpenAI, and Bedrock calls |
+| Storage | SQLite schema and CRUD for local state |
 
----
+## Agent Model
 
-## 4. Core domain concepts
+- The **supervisor** manages every chat turn.
+- **Connector agents** appear when their backend configuration is available.
+- **Custom agents** contain instructions and an allowlist of tools.
+- **Tools** are local capabilities with parameter schemas and validated runners.
 
-### Agents vs tools
+Snowflake and account lookup are tools used by built-in connector agents. Uploaded CSV files become `query_dataset_*` tools that can be assigned to custom agents.
 
-| Concept | Local meaning | Examples |
-| --- | --- | --- |
-| **Agent** | Named specialist with instructions and an allowed tool set | Custom agent “Q4 Analyst”; built-in Sales pipeline / Account directory |
-| **Tool** | Callable capability with schema + local runner | `query_snowflake`, `lookup_account`, `query_dataset_*`, `summarize_findings` |
-| **Supervisor** | Always-present manager that chooses specialists and may run follow-up tools | `supervisor` |
-| **Conversation** | Thread with `selected_agent_ids` (always includes supervisor + configured connectors + custom specialists) | Sidebar chat |
+## Chat Turn
 
-Built-in connector agents exist so chat can use Snowflake / External API without creating a custom agent. You can also create a custom agent that attaches those same tools, with or without CSV knowledge tools.
+```mermaid
+sequenceDiagram
+  actor User
+  participant UI
+  participant API
+  participant Manager as Supervisor
+  participant Agent as Specialist
+  participant Tool
+  participant Model as Provider
+  participant DB as SQLite
 
-### Studios (UI)
+  User->>UI: Send message
+  UI->>API: POST message
+  API->>Manager: Conversation context and agent catalog
+  Manager->>Model: Select specialists
+  Model-->>Manager: Agent ids
+  Manager->>Agent: Handoff request
+  Agent->>Tool: Run approved tool
+  Tool-->>Agent: Structured result
+  Manager->>Model: Synthesize findings
+  Model-->>Manager: Final answer
+  Manager-->>API: Answer, events, artifacts
+  API->>DB: Write completed-turn records sequentially
+  API-->>UI: Replay buffered answer
+```
 
-| Studio | Purpose |
-| --- | --- |
-| **Create agent** → Agent Studio | Name + instructions + **Available options** (connector tools, CSV tools, jump to Knowledge Base) |
-| **Create knowledge base** → Knowledge Base Studio | Upload CSV → becomes a `query_dataset_*` tool agents can attach |
+Invalid model routing output falls back to deterministic keyword routing. Provider execution finishes before conversation writes begin, so provider failures do not append messages. Successful-turn records use separate commits and are not atomic as a group.
 
----
+## Persistence
 
-## 5. End-to-end process flows
+SQLite stores:
 
-### 5.1 Chat turn (happy path)
+- conversations and messages;
+- group-chat trace events;
+- chart artifacts;
+- custom agents; and
+- imported dataset metadata.
 
-The backend runs the supervisor before changing conversation history. After a successful supervisor run, it writes the user and assistant messages, events, and artifacts in sequence before replaying the completed answer as buffered text. Provider failures therefore occur before conversation writes. These successful-turn writes currently use separate commits rather than one atomic database transaction. See [local_group_chat_flow.md](./local_group_chat_flow.md) for the detailed sequence and supervisor internals.
+Uploaded CSV bytes and optional turn reports live under `backend/data/` and are excluded from Git.
 
-### 5.2 Create custom agent
+## Trust Boundaries
 
-1. Settings → **Create agent**.
-2. Fill name + instructions; select tools from Available options (CSV tools required for a visible custom agent; connectors are tools that may also be attached).
-3. `POST /custom-agents` → row in `custom_agents`.
-4. New chats include that agent id in `selected_agent_ids` (after normalization with supervisor + connectors).
+- The app is designed for localhost and has no authentication.
+- CORS permits the local Vite development origins.
+- CSV uploads are limited to 2 MB.
+- Snowflake accepts validated read-only `SELECT` statements, but production use still requires a least-privilege database role.
+- Provider credentials and connector secrets are loaded from `.env` and are never stored in SQLite.
+- The active provider override is process-global.
 
-### 5.3 Upload knowledge (CSV)
-
-1. Settings → **Create knowledge base**.
-2. `POST /datasets` (multipart) → CSV stored under imported datasets dir + `imported_datasets` row.
-3. Tool registry exposes `tool_name` (e.g. `query_dataset_<uuid>`).
-4. Agent Studio lists it under Available options for assignment.
-
-### 5.4 Switch model provider
-
-1. Sidebar select → `PUT /providers/active`.
-2. In-process override updates `effective_settings()` for subsequent supervisor runs.
-3. `GET /health` / `GET /providers/health` reflect readiness.
-
----
-
-## 6. Data at a glance
-
-Persisted in SQLite (see LLD for columns and constraints):
-
-| Area | Tables |
-| --- | --- |
-| Chat | `conversations`, `messages` |
-| Inspect | `group_chat_events`, `artifacts` |
-| Agent Studio | `custom_agents` |
-| Knowledge | `imported_datasets` (+ CSV files on disk) |
-
-A legacy `tool_traces` table may still exist in older SQLite files; the active API and Inspect UI use `group_chat_events` instead.
-
-Not in SQLite: active provider override (process memory), model credentials (env), connector config (env).
-
----
-
-## 7. Trust boundaries and limits
-
-- No auth. Localhost-oriented CORS only.
-- CSV import capped at 2 MB.
-- Custom specialists run configured tools; connector tools use model tool-calls, while dataset tools still use inferred `{limit: 50}` defaults.
-- Stream body is `text/plain` chunks of the **already-completed** supervisor answer (`X-Stream-Mode: buffered`); inspect events are persisted with the completed turn before buffered replay.
-- Successful-turn records are written sequentially with separate commits; a later persistence failure can leave an incomplete turn.
-- Turn reports are opt-in via `TURN_REPORTS_ENABLED=1` and redact secret-like fields.
-- `model_provider` column may still exist on `custom_agents` for older DBs; API no longer uses per-agent providers (global header/provider only).
-
----
-
-## 8. Related docs
-
-| Doc | Use when |
-| --- | --- |
-| [low_level_design.md](./low_level_design.md) | Schema, API catalog, modules, invariants |
-| [local_group_chat_flow.md](./local_group_chat_flow.md) | One chat-turn Mermaid detail |
-| Root [README.md](../README.md) | Runbook and first chat |
+See the [Low-Level Design](./low_level_design.md) for endpoints, tables, and module contracts.

@@ -24,7 +24,7 @@ logging.basicConfig(level=logging.INFO)
 app = FastAPI(
     title="ChatRoom API",
     version="0.1.0",
-    description="Teaching backend for ChatRoom orchestration.",
+    description="Backend API for ChatRoom multi-agent orchestration.",
 )
 app.add_middleware(
     CORSMiddleware,
