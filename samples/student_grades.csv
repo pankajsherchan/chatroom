@@ -1,0 +1,21 @@
+student_id,student_name,grade_level,homeroom,math,english,science,history,art,pe,gpa
+S-1001,Ava Chen,9,A,92,88,95,84,90,98,9.1
+S-1002,Noah Patel,9,A,78,85,81,79,88,94,8.4
+S-1003,Mia Alvarez,9,B,95,91,93,89,86,90,9.1
+S-1004,Liam Nguyen,9,B,67,72,70,74,80,85,7.5
+S-1005,Sophia Kim,10,C,88,94,90,92,85,91,9.0
+S-1006,Ethan Brooks,10,C,74,69,76,71,78,88,7.6
+S-1007,Isabella Garcia,10,D,91,87,89,93,94,96,9.2
+S-1008,Mason Wright,10,D,82,80,77,85,72,90,8.1
+S-1009,Olivia Rahman,11,E,96,92,98,90,88,93,9.3
+S-1010,Lucas Okonkwo,11,E,70,75,68,73,81,87,7.6
+S-1011,Emma Johansson,11,F,85,90,84,88,92,89,8.8
+S-1012,James Silva,11,F,79,83,81,80,76,92,8.2
+S-1013,Amelia Rossi,12,G,93,96,91,94,89,95,9.3
+S-1014,Benjamin Torres,12,G,61,66,64,70,75,83,7.0
+S-1015,Harper Williams,12,H,87,85,88,86,90,91,8.8
+S-1016,Henry Kowalski,12,H,72,78,74,76,69,86,7.6
+S-1017,Evelyn Sato,9,A,90,86,92,81,84,97,8.8
+S-1018,Jack Mueller,10,C,68,71,65,69,77,82,7.2
+S-1019,Charlotte Dubois,11,E,94,97,95,91,93,90,9.3
+S-1020,Daniel Park,12,G,83,81,86,84,80,94,8.5

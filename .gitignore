@@ -1,0 +1,28 @@
+# Local secrets and machine-specific env files.
+.env
+.env.*
+!.env.example
+
+# Python generated files.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+backend/.venv/
+
+# Local runtime data. Keep deliberate examples under samples/ or mock_services/.
+backend/data/*.db
+backend/data/*.sqlite
+backend/data/*.sqlite3
+backend/data/artifacts/
+backend/data/datasets/
+backend/data/turn_reports/
+
+# Frontend generated files.
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+
+# OS/editor noise.
+.DS_Store
+*.txt

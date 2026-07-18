@@ -1,0 +1,20 @@
+[
+  {
+    "account_id": "AC-1001",
+    "name": "Northwind Traders",
+    "segment": "Enterprise",
+    "status": "active"
+  },
+  {
+    "account_id": "AC-1002",
+    "name": "Contoso Retail",
+    "segment": "Mid-Market",
+    "status": "active"
+  },
+  {
+    "account_id": "AC-1003",
+    "name": "Fabrikam Labs",
+    "segment": "Small Business",
+    "status": "inactive"
+  }
+]

@@ -1,0 +1,19 @@
+deal_id,close_month,region,segment,product_line,stage,owner,revenue,probability_pct
+D-2001,2026-01,West,Enterprise,Analytics Platform,Closed Won,Alex Chen,48000,100
+D-2002,2026-01,East,Mid-Market,Workflow Automation,Proposal,Sam Rivera,22000,60
+D-2003,2026-01,Central,Small Business,Support Suite,Discovery,Jordan Lee,8500,25
+D-2004,2026-02,South,Enterprise,Analytics Platform,Negotiation,Casey Park,62000,75
+D-2005,2026-02,West,Mid-Market,Support Suite,Closed Won,Alex Chen,14500,100
+D-2006,2026-02,East,Enterprise,Workflow Automation,Closed Won,Sam Rivera,91000,100
+D-2007,2026-03,Central,Mid-Market,Analytics Platform,Proposal,Jordan Lee,31000,55
+D-2008,2026-03,South,Small Business,Support Suite,Closed Lost,Casey Park,6000,0
+D-2009,2026-03,West,Enterprise,Workflow Automation,Closed Won,Alex Chen,78000,100
+D-2010,2026-03,East,Mid-Market,Analytics Platform,Discovery,Sam Rivera,18500,30
+D-2011,2026-04,Central,Enterprise,Support Suite,Negotiation,Jordan Lee,54000,70
+D-2012,2026-04,South,Mid-Market,Workflow Automation,Proposal,Casey Park,27000,50
+D-2013,2026-04,West,Small Business,Analytics Platform,Closed Won,Alex Chen,12000,100
+D-2014,2026-04,East,Enterprise,Support Suite,Closed Won,Sam Rivera,67000,100
+D-2015,2026-05,Central,Mid-Market,Workflow Automation,Closed Won,Jordan Lee,39000,100
+D-2016,2026-05,South,Enterprise,Analytics Platform,Negotiation,Casey Park,83000,80
+D-2017,2026-05,West,Mid-Market,Support Suite,Discovery,Alex Chen,16000,35
+D-2018,2026-05,East,Small Business,Workflow Automation,Closed Lost,Sam Rivera,9500,0
