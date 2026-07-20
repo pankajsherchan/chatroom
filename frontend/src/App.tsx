@@ -75,6 +75,7 @@ function App() {
   const [providerHealth, setProviderHealth] = useState<ProvidersHealth | null>(null)
   const [providerHealthError, setProviderHealthError] = useState<string | null>(null)
   const [providerSwitching, setProviderSwitching] = useState(false)
+  const [providerMenuOpen, setProviderMenuOpen] = useState(false)
   const [tools, setTools] = useState<LocalTool[]>([])
   const [toolsError, setToolsError] = useState<string | null>(null)
   const [isDeletingConversation, setIsDeletingConversation] = useState(false)
@@ -609,7 +610,7 @@ function App() {
     )
     if (selectedTools.length === 0) {
       setStudioError(
-        'Select at least one tool — a backend connector (Sales pipeline / Account directory) or a CSV knowledge tool.',
+        'Select at least one tool — a backend connector (Sales pipeline / Account lookup) or a CSV knowledge tool.',
       )
       return
     }
@@ -809,27 +810,73 @@ function App() {
         </section>
 
         <footer className="gpt-sidebar-footer">
-          <label className="gpt-model-select" data-status={providerStatus}>
-            <span className="provider-dot" aria-hidden="true" />
-            <span className="gpt-model-copy">
-              <small>Model</small>
-              <select
-                value={activeProviderId}
-                onChange={(event) => {
-                  void handleProviderChange(event.target.value)
-                }}
-                disabled={providerSwitching || selectableProviders.length === 0}
-                aria-label="Model"
+          <div
+            className="gpt-model-select"
+            data-status={providerStatus}
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) {
+                setProviderMenuOpen(false)
+              }
+            }}
+          >
+            <button
+              className="gpt-model-trigger"
+              type="button"
+              aria-expanded={providerMenuOpen}
+              aria-haspopup="listbox"
+              aria-label={`LLM provider: ${activeProvider?.name ?? providerLabel}`}
+              disabled={providerSwitching || selectableProviders.length === 0}
+              onClick={() => setProviderMenuOpen((isOpen) => !isOpen)}
+            >
+              <span className="provider-dot" aria-hidden="true" />
+              <span className="gpt-model-copy">
+                <small>LLM provider</small>
+                <strong>{activeProvider?.name ?? providerLabel}</strong>
+              </span>
+              <span className="gpt-model-chevron" aria-hidden="true">
+                {providerMenuOpen ? '⌄' : '⌃'}
+              </span>
+            </button>
+            {providerMenuOpen ? (
+              <div
+                className="gpt-model-menu"
+                role="listbox"
+                aria-label="Available LLM providers"
               >
-                {selectableProviders.map((provider) => (
-                  <option key={provider.id} value={provider.id}>
-                    {provider.name}
-                    {provider.ready ? '' : ' (not configured)'}
-                  </option>
-                ))}
-              </select>
-            </span>
-          </label>
+                <p className="gpt-model-menu-title">LLM providers</p>
+                {selectableProviders.map((provider) => {
+                  const isActive = provider.id === activeProviderId
+                  const status = isActive
+                    ? 'Active · Configured'
+                    : provider.ready
+                      ? 'Configured'
+                      : 'Not configured'
+
+                  return (
+                    <button
+                      className="gpt-model-option"
+                      type="button"
+                      role="option"
+                      aria-label={`${provider.name}: ${status}`}
+                      aria-selected={isActive}
+                      disabled={providerSwitching || !provider.ready}
+                      key={provider.id}
+                      onClick={() => {
+                        setProviderMenuOpen(false)
+                        void handleProviderChange(provider.id)
+                      }}
+                    >
+                      <span>{provider.name}</span>
+                      <small>{status}</small>
+                    </button>
+                  )
+                })}
+                <p className="gpt-model-menu-note">
+                  Additional providers become selectable when configured in the backend.
+                </p>
+              </div>
+            ) : null}
+          </div>
           <button className="gpt-footer-btn" type="button" onClick={openAgents}>
             <Icon name="settings" />
             <span>Settings</span>
@@ -1054,7 +1101,11 @@ function App() {
                     <details className="tool-card" key={tool.name}>
                       <summary>
                         <span>
-                          <strong>{tool.name}</strong>
+                          <strong>{toolLabel(tool.name)}</strong>
+                          <small className="tool-source">
+                            {toolSourceLabel(tool.name, connectors, datasets)}
+                          </small>
+                          <small className="tool-id">Tool ID: {tool.name}</small>
                           <small>{tool.description}</small>
                         </span>
                       </summary>
@@ -1260,7 +1311,10 @@ function App() {
                               }
                             >
                               <span className="available-row-copy">
-                                <strong>{connector.name}</strong>
+                                <strong>{connectorDisplayLabel(connector)}</strong>
+                                <small className="tool-source">
+                                  Pre-configured tool — Backend configuration
+                                </small>
                                 <small>
                                   {connector.ready
                                     ? connector.purpose
@@ -1287,6 +1341,9 @@ function App() {
                             >
                               <span className="available-row-copy">
                                 <strong>{toolLabel(tool.name)}</strong>
+                                <small className="tool-source">
+                                  {toolSourceLabel(tool.name, connectors, datasets)}
+                                </small>
                                 <small>{tool.description}</small>
                               </span>
                               <span className="available-row-check" aria-hidden="true">
@@ -1418,7 +1475,7 @@ function displayToolLabel(
 ) {
   const connector = connectors.find((item) => item.tool_name === toolName)
   if (connector) {
-    return connector.name
+    return connectorDisplayLabel(connector)
   }
 
   const dataset = datasets.find((item) => item.tool_name === toolName)
@@ -1427,6 +1484,30 @@ function displayToolLabel(
   }
 
   return toolName.replaceAll('_', ' ')
+}
+
+function connectorDisplayLabel(connector: ConnectorHealth) {
+  if (connector.id === 'snowflake') {
+    return 'Sales pipeline — Snowflake query'
+  }
+  if (connector.id === 'external_api') {
+    return 'Account lookup — External API service'
+  }
+  return connector.name
+}
+
+function toolSourceLabel(
+  toolName: string,
+  connectors: ConnectorHealth[],
+  datasets: ImportedDataset[],
+) {
+  if (connectors.some((connector) => connector.tool_name === toolName)) {
+    return 'Pre-configured tool — Backend configuration'
+  }
+  if (datasets.some((dataset) => dataset.tool_name === toolName)) {
+    return 'Dynamically generated tool — CSV upload'
+  }
+  return 'Built-in tool — Application code'
 }
 
 function isStaleCustomAgent(agent: { tools: string[] }) {

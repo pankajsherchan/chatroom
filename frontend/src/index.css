@@ -780,6 +780,26 @@ select {
   line-height: 1.4;
 }
 
+.tool-card summary .tool-id {
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.tool-source {
+  justify-self: start;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent) !important;
+  padding: 3px 7px;
+  font-size: 9px !important;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  line-height: 1.2 !important;
+  text-transform: uppercase;
+}
+
 .tool-card-body {
   display: grid;
   gap: 12px;
